@@ -1,0 +1,27 @@
+package com.parking.parkinglot.ejb;
+
+import jakarta.ejb.Stateful;
+import jakarta.enterprise.context.SessionScoped;
+
+import java.io.Serial;
+import java.io.Serializable;
+import java.util.HashSet;
+import java.util.Set;
+
+@Stateful
+@SessionScoped
+public class InvoiceBean implements Serializable {
+    @Serial
+    private static final long serialVersionUID = 1L;
+
+    private Set<Long> userIds = new HashSet<Long>();
+
+
+    public Set<Long> getUserIds() {
+        return userIds;
+    }
+
+    public void setUserIds(Set<Long> userIds) {
+        this.userIds = userIds;
+    }
+}

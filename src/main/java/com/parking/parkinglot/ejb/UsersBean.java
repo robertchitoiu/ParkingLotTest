@@ -1,0 +1,96 @@
+package com.parking.parkinglot.ejb;
+
+import com.parking.parkinglot.common.CarDto;
+import com.parking.parkinglot.common.UserDto;
+import com.parking.parkinglot.entities.Car;
+import com.parking.parkinglot.entities.User;
+import com.parking.parkinglot.entities.UserGroup;
+import jakarta.ejb.EJBException;
+import jakarta.ejb.Stateless;
+import jakarta.inject.Inject;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.TypedQuery;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.logging.Logger;
+
+@Stateless
+public class UsersBean {
+
+    private static final Logger LOG = Logger.getLogger(UsersBean.class.getName());
+
+    @PersistenceContext
+    private EntityManager entityManager;
+
+    @Inject
+    private CarsBean carsBean;
+
+    @Inject
+    private PasswordBean passwordBean;
+
+    public List<UserDto> findAllUsers(){
+        LOG.info("findAllUsers");
+        try {
+            TypedQuery<User> typedQuery = entityManager.createQuery("SELECT c FROM User c", User.class);
+            List<User> users = typedQuery.getResultList();
+            return toDto(users);
+        }catch(Exception e){
+            throw new EJBException(e);
+        }
+    }
+
+    private List<UserDto> toDto(List<User> users) {
+        if (users == null || users.isEmpty()) {
+            return new ArrayList<UserDto>();
+        }
+        return users.stream().map(user -> {
+            UserDto dto = new UserDto(user.getId(), user.getUsername(), user.getEmail(), user.getPassword());
+            dto.getCars().addAll(
+                    carsBean.copyCarsToDto(user.getCars())
+            );
+            return dto;
+        }).toList();
+    }
+
+    public User findUser(Long ownerId) {
+        if (ownerId == null) {
+            return null;
+        }
+       return entityManager.find(User.class, ownerId);
+    }
+
+    public void createUser(String username, String email, String password, Collection<String> groups) {
+        LOG.info("createUser");
+
+        User newUser = new User();
+        newUser.setUsername(username);
+        newUser.setEmail(email);
+        newUser.setPassword(passwordBean.convertToSha256(password));
+        entityManager.persist(newUser);
+
+        assignGroupsToUser(username, groups);
+    }
+
+    private void assignGroupsToUser(String username, Collection<String> groups) {
+        LOG.info("assignGroupsToUser");
+
+        for (String group : groups) {
+            UserGroup userGroup = new UserGroup();
+            userGroup.setUsername(username);
+            userGroup.setUserGroup(group);
+            entityManager.persist(userGroup);
+        }
+    }
+
+    public Collection<String> findUsernamesByUserIds(Collection<Long> userIds) {
+        LOG.info("findUsernamesByUserIds");
+        List<String> userNames = entityManager.createQuery("SELECT u.username FROM User u WHERE u.id IN :userIds", String.class)
+                .setParameter("userIds", userIds)
+                .getResultList();
+        return userNames;
+    }
+
+}
